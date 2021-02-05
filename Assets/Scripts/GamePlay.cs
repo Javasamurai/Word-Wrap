@@ -4,15 +4,20 @@ using UnityEngine;
 using UnityEngine.UI;
 using System;
 using System.Collections;
+using UnityEngine.EventSystems;
+using TMPro;
 
-public class GamePlay : MonoBehaviour
+public class GamePlay : MonoBehaviour, IPointerDownHandler
 {
+    private bool started = false;
+    private int score = 0;
     [SerializeField]
-    public Text solution;
+    public Text tapToPlayText, scoreText;
+    public TextMeshProUGUI solution;
     private AudioSource source;
 
     [SerializeField]
-    AudioClip wordTap, correctSFX, wrongSFX;
+    AudioClip wordTap = null, correctSFX = null, wrongSFX = null;
 
     [SerializeField]
     public GameObject characterPrefab;
@@ -33,13 +38,14 @@ public class GamePlay : MonoBehaviour
     {
         source = GetComponent<AudioSource>();
         source.clip = wordTap;
+        scoreText.text = "Best:" + PlayerPrefs.GetInt("score") + "";
         words = wordsFile.text.Replace("\n", "").Replace("\r", "").Split(',');
-        GenerateNewWord();
         Alphabet.pressed += AddAlphabet;
     }
 
     void AddAlphabet(char alphabet) {
         guess[index] = alphabet;
+        solution.text = new string(guess);
         index++;
 
         GetComponent<AudioSource>().Play();
@@ -52,16 +58,13 @@ public class GamePlay : MonoBehaviour
     public void GenerateNewWord() {
         System.Random r = new System.Random();        
         var word = words[r.Next(words.Length - 1)];
-        Debug.LogError(word);
         guess = new char[word.Length];
         currWord = word;
-        solution.text = word;
-        solution.enabled = false;
+        solution.fontStyle = TMPro.FontStyles.Normal;
+        solution.text = "";
 
         index = 0;
-        var random = new System.Random();
-
-        char[] jumbled = (word.ToCharArray().OrderBy(x=> random.Next()).ToArray());
+        char[] jumbled = ShuffleWord(word);
         foreach (var item in container)
         {
             Destroy( ((Transform) item).gameObject);
@@ -70,23 +73,55 @@ public class GamePlay : MonoBehaviour
         foreach (var item in jumbled)
         {
             GameObject go = Instantiate(characterPrefab, Vector3.zero, Quaternion.identity);
-            go.transform.parent = container;
+            go.transform.SetParent(container);
             go.GetComponent<Text>().text = item.ToString();
         }
     }
 
+    char[] ShuffleWord(string word) {
+        var random = new System.Random();
+
+        char[] jumbled = word.ToCharArray().OrderBy(x=> random.Next()).ToArray(); 
+        if (new string(jumbled).Equals(word)) {
+            return ShuffleWord(word);
+        } else {
+            return jumbled;
+        }
+    }
+
     IEnumerator VerifyWord() {
+        solution.enabled = true;
+
         if (currWord.Equals(new string(guess))) {
-            solution.enabled = true;
             source.clip = correctSFX;
+            score++;
+            scoreText.text = score + "";
             yield return new WaitForSeconds(2f);
+            solution.text = currWord;
             GenerateNewWord();
             source.Play();
         } else {
+            if (score > PlayerPrefs.GetInt("score")) {
+                PlayerPrefs.SetInt("score", score);
+            }
+            solution.fontStyle = TMPro.FontStyles.Strikethrough;
+            score = 0;
+            scoreText.text = score + "";
             source.clip = wrongSFX;
             source.Play();
             yield return new WaitForSeconds(2f);
+            GenerateNewWord();
         }
         source.clip = wordTap;
+    }
+
+    public void OnPointerDown(PointerEventData eventData)
+    {
+         if (!started) {
+            started = true;
+            tapToPlayText.gameObject.SetActive(false);
+            scoreText.text = score + ""; 
+            GenerateNewWord();
+        }
     }
 }
