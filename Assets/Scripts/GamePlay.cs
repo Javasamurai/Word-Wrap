@@ -74,6 +74,7 @@ public class GamePlay : MonoBehaviour, IPointerDownHandler
         {
             GameObject go = Instantiate(characterPrefab, Vector3.zero, Quaternion.identity);
             go.transform.SetParent(container);
+            go.transform.localScale = Vector3.one;
             go.GetComponent<Text>().text = item.ToString();
         }
     }
@@ -83,7 +84,11 @@ public class GamePlay : MonoBehaviour, IPointerDownHandler
 
         char[] jumbled = word.ToCharArray().OrderBy(x=> random.Next()).ToArray(); 
         if (new string(jumbled).Equals(word)) {
-            return ShuffleWord(word);
+            System.Random r = new System.Random();        
+            var selectedWord = words[r.Next(words.Length - 1)];
+            guess = new char[word.Length];
+            currWord = word;
+            return ShuffleWord(selectedWord);
         } else {
             return jumbled;
         }
